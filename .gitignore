@@ -1,0 +1,28 @@
+# Python virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# IDE configuration directories
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Local logs and debug files
+*.log
