@@ -31,17 +31,22 @@ const elements = {
     tweetPreviewCategory: document.getElementById('tweet-preview-category'),
     tweetPreviewBody: document.getElementById('tweet-preview-body'),
     charCounter: document.getElementById('char-counter'),
-    charRingProgress: document.getElementById('char-ring-progress')
+    charRingProgress: document.getElementById('char-ring-progress'),
+    themeCheckbox: document.getElementById('theme-checkbox')
 };
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     setupEventListeners();
     fetchReleaseNotes();
 });
 
 // Setup Event Listeners
 function setupEventListeners() {
+    // Theme toggle
+    elements.themeCheckbox.addEventListener('change', handleThemeChange);
+
     // Refresh action
     elements.btnRefresh.addEventListener('click', fetchReleaseNotes);
     elements.btnRetry.addEventListener('click', fetchReleaseNotes);
@@ -528,4 +533,20 @@ function exportFilteredToCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+// Initialize theme from localStorage or default to dark
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    if (elements.themeCheckbox) {
+        elements.themeCheckbox.checked = (savedTheme === 'light');
+    }
+}
+
+// Toggle and save theme preference
+function handleThemeChange(e) {
+    const newTheme = e.target.checked ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
 }
