@@ -9,6 +9,7 @@ const elements = {
     btnRefresh: document.getElementById('btn-refresh'),
     refreshIcon: document.getElementById('refresh-icon'),
     lastUpdatedTime: document.getElementById('last-updated-time'),
+    btnExport: document.getElementById('btn-export'),
     searchInput: document.getElementById('search-input'),
     searchClearBtn: document.getElementById('search-clear-btn'),
     categoryFiltersContainer: document.getElementById('category-filters-container'),
@@ -44,6 +45,7 @@ function setupEventListeners() {
     // Refresh action
     elements.btnRefresh.addEventListener('click', fetchReleaseNotes);
     elements.btnRetry.addEventListener('click', fetchReleaseNotes);
+    elements.btnExport.addEventListener('click', exportFilteredToCSV);
     
     // Search actions
     elements.searchInput.addEventListener('input', handleSearchInput);
@@ -269,6 +271,10 @@ function createUpdateCard(update, day) {
             ${update.body_html}
         </div>
         <div class="card-actions-footer">
+            <button class="btn-copy-action" onclick="event.stopPropagation(); copyToClipboard('${update.id}', this)" title="Copy text to clipboard">
+                <i class="fa-regular fa-copy"></i>
+                <span>Copy</span>
+            </button>
             <button class="btn-tweet-action" onclick="event.stopPropagation(); openTweetModal('${update.id}')">
                 <i class="fa-brands fa-x-twitter"></i>
                 <span>Tweet Update</span>
@@ -433,4 +439,93 @@ function submitTweet() {
     window.open(twitterIntentUrl, '_blank', 'width=550,height=420');
     
     closeModal();
+}
+
+// Copy single release note text to clipboard
+async function copyToClipboard(updateId, buttonEl) {
+    const update = findUpdateById(updateId);
+    if (!update) return;
+    
+    const textToCopy = `🚀 BigQuery [${update.category}] (${update.date}):\n${update.body_text}\n\nRead more: ${update.link}`;
+    
+    try {
+        await navigator.clipboard.writeText(textToCopy);
+        
+        // Success UI Feedback
+        const icon = buttonEl.querySelector('i');
+        const label = buttonEl.querySelector('span');
+        
+        buttonEl.classList.add('copied');
+        icon.className = 'fa-solid fa-check';
+        label.textContent = 'Copied!';
+        
+        setTimeout(() => {
+            buttonEl.classList.remove('copied');
+            icon.className = 'fa-regular fa-copy';
+            label.textContent = 'Copy';
+        }, 2000);
+    } catch (err) {
+        console.error('Clipboard copy failed:', err);
+        alert('Failed to copy to clipboard. Please grant clipboard permissions.');
+    }
+}
+
+// Export currently filtered release notes list to CSV
+function exportFilteredToCSV() {
+    if (releaseNotes.length === 0) {
+        alert("No release notes loaded to export.");
+        return;
+    }
+    
+    const csvRows = [];
+    
+    // CSV Header row
+    csvRows.push(['Date', 'Category', 'Link', 'Content']);
+    
+    releaseNotes.forEach(day => {
+        day.updates.forEach(update => {
+            // Apply matching current search & category filter rules
+            const categoryMatches = (activeCategory === 'all') || 
+                                    (update.category.toLowerCase() === activeCategory.toLowerCase());
+            const searchMatches = searchQuery === '' || 
+                                  update.body_text.toLowerCase().includes(searchQuery) ||
+                                  update.category.toLowerCase().includes(searchQuery) ||
+                                  day.date.toLowerCase().includes(searchQuery);
+                                  
+            if (categoryMatches && searchMatches) {
+                // Escape quotes inside fields for valid CSV formatting
+                const dateVal = `"${day.date.replace(/"/g, '""')}"`;
+                const catVal = `"${update.category.replace(/"/g, '""')}"`;
+                const linkVal = `"${day.link.replace(/"/g, '""')}"`;
+                const contentVal = `"${update.body_text.replace(/"/g, '""')}"`;
+                
+                csvRows.push([dateVal, catVal, linkVal, contentVal]);
+            }
+        });
+    });
+    
+    // Prevent download if result set is empty
+    if (csvRows.length <= 1) {
+        alert("No matching notes found to export with the current filter settings.");
+        return;
+    }
+    
+    // Join with CSV conventions
+    const csvContent = csvRows.map(row => row.join(',')).join('\r\n');
+    
+    // Download triggers
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    
+    // Dynamic filename based on filters
+    const categorySlug = activeCategory !== 'all' ? `-${activeCategory.toLowerCase()}` : '';
+    const searchSlug = searchQuery ? `-search-${searchQuery.substring(0, 10).replace(/[^a-z0-9]/gi, '_')}` : '';
+    link.setAttribute("download", `bigquery-release-notes${categorySlug}${searchSlug}.csv`);
+    
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
