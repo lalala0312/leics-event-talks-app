@@ -1,0 +1,53 @@
+name: Build and Push Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'CD/d0/values-version.yaml'
+      - 'CD/t0/values-version.yaml'
+      - 'CD/p1/values-version.yaml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changed environment
+        id: env
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -q 'CD/d0'; then
+            echo "env=d0" >> $GITHUB_OUTPUT
+          elif git diff --name-only HEAD~1 HEAD | grep -q 'CD/t0'; then
+            echo "env=t0" >> $GITHUB_OUTPUT
+          elif git diff --name-only HEAD~1 HEAD | grep -q 'CD/p1'; then
+            echo "env=p1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Read version
+        id: version
+        run: |
+          ENV=${{ steps.env.outputs.env }}
+          VERSION=$(grep 'version:' CD/${ENV}/values-version.yaml | awk '{print $2}')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/leics-event-talks-app:${{ steps.version.outputs.version }}-${{ steps.env.outputs.env }}
